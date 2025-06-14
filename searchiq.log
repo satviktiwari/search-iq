@@ -1,0 +1,2 @@
+2025-06-15 01:56:08,294 - elastic_transport.transport - INFO - HEAD http://localhost:9200/ [status:200 duration:0.016s]
+2025-06-15 01:56:50,794 - __main__ - INFO - Agent successfully processed the question

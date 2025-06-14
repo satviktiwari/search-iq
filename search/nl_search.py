@@ -1,18 +1,27 @@
 import json
 import logging
-from typing import Dict, List, Optional, Union, Any
+import time
+from typing import Dict, List, Optional, Union, Any, Tuple
 from pathlib import Path
+from functools import lru_cache
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import RequestError, ConnectionError, NotFoundError
 from langchain.agents import initialize_agent, Tool
 from langchain_community.llms import Ollama
 from dotenv import load_dotenv
 import os
+import backoff
+from datetime import datetime
+import hashlib
 
-# Configure logging
+# Configure logging with more detailed format
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('searchiq.log'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -26,19 +35,76 @@ class ElasticSearchConfig:
         self.password = os.getenv('ES_PASSWORD')
         self.verify_certs = os.getenv('ES_VERIFY_CERTS', 'true').lower() == 'true'
         self.timeout = int(os.getenv('ES_TIMEOUT', '30'))
+        self.max_retries = int(os.getenv('ES_MAX_RETRIES', '3'))
+        self.retry_delay = int(os.getenv('ES_RETRY_DELAY', '1'))
 
 class SearchConfig:
     def __init__(self):
         self.default_size = int(os.getenv('DEFAULT_SEARCH_SIZE', '5'))
         self.max_size = int(os.getenv('MAX_SEARCH_SIZE', '100'))
         self.model_name = os.getenv('OLLAMA_MODEL', 'gemma:2b')
+        self.cache_ttl = int(os.getenv('CACHE_TTL', '300'))  # 5 minutes default
+        self.max_cache_size = int(os.getenv('MAX_CACHE_SIZE', '1000'))
+
+class QueryValidator:
+    @staticmethod
+    def validate_query_structure(query: Dict) -> Tuple[bool, str]:
+        """Validate the structure of an Elasticsearch query."""
+        if not isinstance(query, dict):
+            return False, "Query must be a dictionary"
+        
+        # Check for common query types
+        valid_query_types = {'match', 'match_all', 'term', 'terms', 'range', 'bool', '_source'}
+        query_keys = set(query.keys())
+        
+        if not any(key in valid_query_types for key in query_keys):
+            return False, f"Query must contain at least one valid query type: {valid_query_types}"
+        
+        return True, ""
+
+    @staticmethod
+    def sanitize_input(input_str: str) -> str:
+        """Sanitize user input to prevent injection attacks."""
+        # Remove any potential command injection characters
+        return ''.join(c for c in input_str if c.isprintable())
+
+class CacheManager:
+    def __init__(self, ttl: int, max_size: int):
+        self.ttl = ttl
+        self.max_size = max_size
+        self.cache: Dict[str, Tuple[Any, float]] = {}
+
+    def get(self, key: str) -> Optional[Any]:
+        """Get a value from cache if it exists and is not expired."""
+        if key in self.cache:
+            value, timestamp = self.cache[key]
+            if time.time() - timestamp < self.ttl:
+                return value
+            del self.cache[key]
+        return None
+
+    def set(self, key: str, value: Any):
+        """Set a value in cache with timestamp."""
+        if len(self.cache) >= self.max_size:
+            # Remove oldest entry
+            oldest_key = min(self.cache.keys(), key=lambda k: self.cache[k][1])
+            del self.cache[oldest_key]
+        self.cache[key] = (value, time.time())
 
 # Initialize configurations
 es_config = ElasticSearchConfig()
 search_config = SearchConfig()
+cache_manager = CacheManager(search_config.cache_ttl, search_config.max_cache_size)
 
-# Initialize ElasticSearch client with configuration
+# Initialize ElasticSearch client with retry mechanism
+@backoff.on_exception(
+    backoff.expo,
+    (ConnectionError, RequestError),
+    max_tries=es_config.max_retries,
+    max_time=30
+)
 def get_elasticsearch_client() -> Elasticsearch:
+    """Initialize Elasticsearch client with retry mechanism."""
     try:
         client = Elasticsearch(
             es_config.host,
@@ -58,16 +124,27 @@ es = get_elasticsearch_client()
 # Initialize Ollama LLM wrapper
 llm = Ollama(model=search_config.model_name)
 
+@lru_cache(maxsize=100)
 def validate_index(index: str) -> bool:
-    """Validate if an index exists."""
+    """Validate if an index exists with caching."""
     try:
         return es.indices.exists(index=index)
     except (RequestError, ConnectionError) as e:
         logger.error(f"Error validating index {index}: {str(e)}")
         return False
 
+def generate_cache_key(index: str, query: Dict, size: int) -> str:
+    """Generate a unique cache key for a search query."""
+    query_str = json.dumps(query, sort_keys=True)
+    return hashlib.md5(f"{index}:{query_str}:{size}".encode()).hexdigest()
+
 def list_indices() -> str:
-    """List all indices in ElasticSearch with additional metadata."""
+    """List all indices in ElasticSearch with additional metadata and caching."""
+    cache_key = "list_indices"
+    cached_result = cache_manager.get(cache_key)
+    if cached_result:
+        return cached_result
+
     try:
         indices = es.indices.get_alias("*")
         result = {}
@@ -75,16 +152,21 @@ def list_indices() -> str:
             stats = es.indices.stats(index=index)
             result[index] = {
                 "document_count": stats["indices"][index]["total"]["docs"]["count"],
-                "size_in_bytes": stats["indices"][index]["total"]["store"]["size_in_bytes"]
+                "size_in_bytes": stats["indices"][index]["total"]["store"]["size_in_bytes"],
+                "last_updated": datetime.fromtimestamp(
+                    stats["indices"][index]["total"]["refresh"]["total_time_in_millis"] / 1000
+                ).isoformat()
             }
-        return json.dumps(result, indent=2)
+        result_str = json.dumps(result, indent=2)
+        cache_manager.set(cache_key, result_str)
+        return result_str
     except (RequestError, ConnectionError) as e:
         logger.error(f"Error listing indices: {str(e)}")
         return f"Error listing indices: {str(e)}"
 
 def get_index_mappings(index: str) -> str:
-    """Get mappings and settings of a specific index."""
-    index = index.strip()
+    """Get mappings and settings of a specific index with validation."""
+    index = QueryValidator.sanitize_input(index)
     try:
         if not validate_index(index):
             return f"Index '{index}' does not exist"
@@ -94,7 +176,8 @@ def get_index_mappings(index: str) -> str:
         
         result = {
             "mappings": mappings,
-            "settings": settings
+            "settings": settings,
+            "last_updated": datetime.now().isoformat()
         }
         return json.dumps(result, indent=2)
     except (RequestError, ConnectionError, NotFoundError) as e:
@@ -102,18 +185,21 @@ def get_index_mappings(index: str) -> str:
         return f"Error getting mappings for index '{index}': {str(e)}"
 
 def search_index(input_str: str) -> str:
-    """Enhanced search functionality with better error handling and validation."""
+    """Enhanced search functionality with validation, caching, and better error handling."""
     try:
         parts = input_str.split('|', 2)
-        index = parts[0].strip()
+        index = QueryValidator.sanitize_input(parts[0].strip())
         
         if not validate_index(index):
             return f"Index '{index}' does not exist"
         
-        # Parse query
+        # Parse and validate query
         query = parts[1].strip() if len(parts) > 1 and parts[1].strip() else '{"match_all": {}}'
         try:
             query_dict = json.loads(query)
+            is_valid, error_msg = QueryValidator.validate_query_structure(query_dict)
+            if not is_valid:
+                return f"Invalid query structure: {error_msg}"
         except json.JSONDecodeError:
             return "Invalid JSON query. Please provide a valid JSON string."
         
@@ -123,24 +209,44 @@ def search_index(input_str: str) -> str:
             requested_size = int(parts[2].strip())
             size = min(requested_size, search_config.max_size)
         
-        # Execute search with timeout
-        resp = es.search(
-            index=index,
-            query=query_dict,
-            size=size,
-            timeout=f"{es_config.timeout}s"
+        # Check cache
+        cache_key = generate_cache_key(index, query_dict, size)
+        cached_result = cache_manager.get(cache_key)
+        if cached_result:
+            return cached_result
+        
+        # Execute search with timeout and retry
+        @backoff.on_exception(
+            backoff.expo,
+            (RequestError, ConnectionError),
+            max_tries=es_config.max_retries
         )
+        def execute_search():
+            return es.search(
+                index=index,
+                query=query_dict,
+                size=size,
+                timeout=f"{es_config.timeout}s"
+            )
+        
+        resp = execute_search()
         
         # Process results
         hits = resp.get("hits", {})
         total = hits.get("total", {}).get("value", 0)
         results = [hit["_source"] for hit in hits.get("hits", [])]
         
-        return json.dumps({
+        result = {
             "total": total,
             "took": resp.get("took"),
-            "results": results
-        }, indent=2)
+            "results": results,
+            "cached": False,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        result_str = json.dumps(result, indent=2)
+        cache_manager.set(cache_key, result_str)
+        return result_str
         
     except (RequestError, ConnectionError, NotFoundError) as e:
         logger.error(f"Error searching index '{index}': {str(e)}")
@@ -154,12 +260,12 @@ tools = [
     Tool(
         name="ListIndices",
         func=lambda _: list_indices(),
-        description="Lists all indices in the ElasticSearch cluster with document counts and sizes. No input needed."
+        description="Lists all indices in the ElasticSearch cluster with document counts, sizes, and last update times. No input needed."
     ),
     Tool(
         name="GetIndexMappings",
         func=get_index_mappings,
-        description="Gets the mappings and settings of a specified ElasticSearch index. Input is the index name."
+        description="Gets the mappings, settings, and last update time of a specified ElasticSearch index. Input is the index name."
     ),
     Tool(
         name="SearchIndex",
@@ -167,7 +273,7 @@ tools = [
         description=(
             "Searches an ElasticSearch index with enhanced features. Input format: 'index|query|size'. "
             "Query is a JSON string. Size is optional number of results to return (max 100). "
-            "Returns total count, execution time, and results."
+            "Returns total count, execution time, results, and cache status."
         )
     ),
 ]
@@ -179,11 +285,12 @@ agent = initialize_agent(
     agent="zero-shot-react-description",
     verbose=True,
     handle_parsing_errors=True,
-    max_iterations=5  # Prevent infinite loops
+    max_iterations=5
 )
 
 def ask_agent(question: str) -> str:
-    """Enhanced agent interaction with better prompting."""
+    """Enhanced agent interaction with better prompting and error handling."""
+    question = QueryValidator.sanitize_input(question)
     prompt = (
         "You are an expert ElasticSearch assistant that helps users query and analyze their data.\n"
         "Follow these steps:\n"
