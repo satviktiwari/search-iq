@@ -5,6 +5,8 @@ from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from elasticsearch import Elasticsearch, helpers
 from sentence_transformers import SentenceTransformer
+from transformers import pipeline
+from typing import List, Dict
 
 # === Config ===
 UPLOAD_FOLDER = "uploads"
@@ -20,6 +22,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # === Model & Elasticsearch ===
 model = SentenceTransformer("all-MiniLM-L6-v2")
 es = Elasticsearch(ES_HOST)
+summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
 
 
 # === Utility Functions ===
@@ -32,6 +35,20 @@ def sanitize_index_name(name):
     name = re.sub(r"[^a-z0-9_-]", "-", name)
     name = re.sub(r"-+", "-", name).strip("-")
     return name[:255]
+
+
+def generate_summary(texts: List[str], max_length: int = 250) -> str:
+    """Generate a summary from multiple text chunks."""
+    # Combine all texts with proper spacing
+    combined_text = " ".join(texts)
+    
+    # If text is too long, truncate it (BART has a max input length)
+    if len(combined_text) > 1024:
+        combined_text = combined_text[:1024]
+    
+    # Generate summary
+    summary = summarizer(combined_text, max_length=max_length, min_length=30, do_sample=False)
+    return summary[0]['summary_text']
 
 
 # === Routes ===
@@ -128,7 +145,17 @@ def semantic_search():
         for hit in response["hits"]["hits"]
     ]
 
-    return render_template("results.html", query=query, index=index, results=hits)
+    # Generate summary from all hits
+    if hits:
+        summary = generate_summary([hit["text"] for hit in hits])
+    else:
+        summary = "No relevant information found."
+
+    return render_template("results.html", 
+                         query=query, 
+                         index=index, 
+                         results=hits,
+                         summary=summary)
 
 
 if __name__ == "__main__":
