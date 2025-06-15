@@ -331,7 +331,7 @@ def ask_agent(question: str) -> str:
 if __name__ == "__main__":
     # Example usage with error handling
     try:
-        result = ask_agent("Show me name of all nobel laureates from nobel-laureates index")
+        result = ask_agent("Show me total number of all nobel laureates from nobel-laureates index")
         print("\n=== Agent Response ===\n")
         print(result)
     except Exception as e:
