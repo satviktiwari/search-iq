@@ -1,72 +1,397 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>PDF Uploader</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 40px;
-      background: #f7f7f7;
-    }
-    h2 {
-      color: #333;
-    }
-    form {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-      max-width: 400px;
-    }
-    input[type="file"] {
-      margin-bottom: 15px;
-    }
-    button {
-      background-color: #1976d2;
-      color: white;
-      border: none;
-      padding: 10px 20px;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #145aa0;
-    }
-    .response {
-      margin-top: 20px;
-      font-weight: bold;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SearchIQ - Document Upload</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-hover: #1d4ed8;
+            --background: #f8fafc;
+            --surface: #ffffff;
+            --text-primary: #1e293b;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--background);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+
+        .navbar {
+            background: var(--surface);
+            padding: 1rem 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .navbar-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            text-decoration: none;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+        }
+
+        .nav-links a {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary-color);
+        }
+
+        .main-content {
+            max-width: 800px;
+            margin: 100px auto 40px;
+            padding: 0 2rem;
+        }
+
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
+            padding: 2rem;
+        }
+
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: var(--text-primary);
+        }
+
+        .upload-area {
+            border: 2px dashed var(--border);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 1.5rem;
+            transition: border-color 0.2s;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: var(--primary-color);
+        }
+
+        .upload-area input[type="file"] {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .upload-text {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: var(--border);
+            cursor: not-allowed;
+        }
+
+        .response {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            border-radius: 6px;
+            display: none;
+        }
+
+        .response.success {
+            background-color: #dcfce7;
+            color: #166534;
+            display: block;
+        }
+
+        .response.error {
+            background-color: #fee2e2;
+            color: #991b1b;
+            display: block;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin-top: 1rem;
+        }
+
+        .loading.active {
+            display: block;
+        }
+
+        .spinner {
+            border: 3px solid var(--border);
+            border-top: 3px solid var(--primary-color);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .help-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: var(--background);
+            border-radius: 8px;
+        }
+
+        .help-section h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .help-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .help-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .help-icon {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .help-text h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .help-text p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .help-text ul {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-left: 1.5rem;
+        }
+
+        .help-text li {
+            margin-bottom: 0.25rem;
+        }
+
+        @media (max-width: 640px) {
+            .navbar {
+                padding: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+            }
+
+            .main-content {
+                margin-top: 80px;
+                padding: 0 1rem;
+            }
+
+            .help-section {
+                padding: 1rem;
+            }
+        }
+    </style>
 </head>
 <body>
+    <nav class="navbar">
+        <div class="navbar-content">
+            <a href="/" class="logo">SearchIQ</a>
+            <div class="nav-links">
+                <a href="/">Upload</a>
+                <a href="/search">Search</a>
+            </div>
+        </div>
+    </nav>
 
-  <h2>Upload a PDF to Hydrate into Elasticsearch</h2>
+    <main class="main-content">
+        <div class="card">
+            <h1>Upload Document</h1>
+            <div class="help-section">
+                <h2>How to Use</h2>
+                <div class="help-content">
+                    <div class="help-item">
+                        <div class="help-icon">📄</div>
+                        <div class="help-text">
+                            <h3>Supported Files</h3>
+                            <p>Currently, we support PDF documents only. Make sure your file is in PDF format.</p>
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-icon">⬆️</div>
+                        <div class="help-text">
+                            <h3>Upload Methods</h3>
+                            <p>You can upload your document in two ways:</p>
+                            <ul>
+                                <li>Drag and drop your PDF file into the upload area</li>
+                                <li>Click the upload area to browse and select your file</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-icon">⚡</div>
+                        <div class="help-text">
+                            <h3>Processing</h3>
+                            <p>After uploading, your document will be automatically processed and indexed for semantic search. This may take a few moments depending on the file size.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <form id="uploadForm">
+                <div class="upload-area" id="dropZone">
+                    <div class="upload-icon">📄</div>
+                    <div class="upload-text">Drag and drop your PDF here or click to browse</div>
+                    <input type="file" name="file" accept="application/pdf" required />
+                </div>
+                <button type="submit" id="submitBtn">Upload & Process</button>
+                <div class="loading" id="loading">
+                    <div class="spinner"></div>
+                    <p>Processing your document...</p>
+                </div>
+                <div class="response" id="responseBox"></div>
+            </form>
+        </div>
+    </main>
 
-  <form id="uploadForm">
-    <input type="file" name="file" accept="application/pdf" required />
-    <br />
-    <button type="submit">Upload & Hydrate</button>
-    <div class="response" id="responseBox"></div>
-  </form>
+    <footer>
+        <p>© 2025 SearchIQ. All rights reserved.</p>
+    </footer>
 
-  <script>
-    const form = document.getElementById('uploadForm');
-    const responseBox = document.getElementById('responseBox');
+    <script>
+        const form = document.getElementById('uploadForm');
+        const responseBox = document.getElementById('responseBox');
+        const loading = document.getElementById('loading');
+        const submitBtn = document.getElementById('submitBtn');
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.querySelector('input[type="file"]');
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const formData = new FormData(form);
+        // Handle drag and drop
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--primary-color)';
+        });
 
-      const res = await fetch('/hydrate', {
-        method: 'POST',
-        body: formData
-      });
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.style.borderColor = 'var(--border)';
+        });
 
-      const data = await res.json();
-      responseBox.textContent = data.message || data.error || "Upload failed";
-    });
-  </script>
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--border)';
+            fileInput.files = e.dataTransfer.files;
+            updateFileName();
+        });
 
+        fileInput.addEventListener('change', updateFileName);
+
+        function updateFileName() {
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                dropZone.querySelector('.upload-text').textContent = fileName;
+            }
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(form);
+
+            // Show loading state
+            loading.classList.add('active');
+            submitBtn.disabled = true;
+            responseBox.className = 'response';
+
+            try {
+                const res = await fetch('/hydrate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await res.json();
+                
+                responseBox.textContent = data.message || data.error || "Upload failed";
+                responseBox.className = `response ${data.error ? 'error' : 'success'}`;
+            } catch (error) {
+                responseBox.textContent = "An error occurred. Please try again.";
+                responseBox.className = 'response error';
+            } finally {
+                loading.classList.remove('active');
+                submitBtn.disabled = false;
+            }
+        });
+    </script>
 </body>
 </html>
