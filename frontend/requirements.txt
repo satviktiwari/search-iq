@@ -1,0 +1,4 @@
+flask
+elasticsearch
+sentence-transformers
+PyMuPDF

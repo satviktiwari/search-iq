@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Search Results</title>
+  <style>
+    body { font-family: Arial; padding: 40px; background: #f8f8f8; }
+    .card { background: white; margin-bottom: 20px; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .score { color: #888; font-size: 14px; margin-bottom: 10px; }
+  </style>
+</head>
+<body>
+
+<h2>Results for: "{{ query }}"</h2>
+
+{% for result in results %}
+  <div class="card">
+    <div class="score">Score: {{ result.score }}</div>
+    <div>{{ result.text }}</div>
+  </div>
+{% endfor %}
+
+</body>
+</html>
