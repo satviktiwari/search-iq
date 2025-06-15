@@ -175,6 +175,60 @@
             font-size: 0.875rem;
         }
 
+        .help-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: var(--background);
+            border-radius: 8px;
+        }
+
+        .help-section h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .help-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .help-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .help-icon {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .help-text h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .help-text p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .help-text ul {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-left: 1.5rem;
+        }
+
+        .help-text li {
+            margin-bottom: 0.25rem;
+        }
+
         @media (max-width: 640px) {
             .navbar {
                 padding: 1rem;
@@ -187,6 +241,10 @@
             .main-content {
                 margin-top: 80px;
                 padding: 0 1rem;
+            }
+
+            .help-section {
+                padding: 1rem;
             }
         }
     </style>
@@ -205,6 +263,41 @@
     <main class="main-content">
         <div class="card">
             <h1>Semantic Search</h1>
+            <div class="help-section">
+                <h2>How to Use</h2>
+                <div class="help-content">
+                    <div class="help-item">
+                        <div class="help-icon">🔍</div>
+                        <div class="help-text">
+                            <h3>Search Index</h3>
+                            <p>Enter the name of the Elasticsearch index where your documents are stored. This is typically the name you used when uploading your documents.</p>
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-icon">💡</div>
+                        <div class="help-text">
+                            <h3>Natural Language Queries</h3>
+                            <p>Ask questions in natural language. For example:</p>
+                            <ul>
+                                <li>"What are the main points in chapter 3?"</li>
+                                <li>"Summarize the key findings"</li>
+                                <li>"What does the document say about implementation?"</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-icon">🎯</div>
+                        <div class="help-text">
+                            <h3>Search Results</h3>
+                            <p>Results are ranked by relevance to your query. Each result shows:</p>
+                            <ul>
+                                <li>The matching text from the document</li>
+                                <li>A relevance score showing how well it matches your query</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <form method="POST" action="/semantic-search" id="searchForm">
                 <div class="form-group">
                     <label for="index">Elasticsearch Index</label>

@@ -191,6 +191,60 @@
             font-size: 0.875rem;
         }
 
+        .help-section {
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background: var(--background);
+            border-radius: 8px;
+        }
+
+        .help-section h2 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 1rem;
+        }
+
+        .help-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .help-item {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-start;
+        }
+
+        .help-icon {
+            font-size: 1.5rem;
+            color: var(--primary-color);
+        }
+
+        .help-text h3 {
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
+        }
+
+        .help-text p {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .help-text ul {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            margin-left: 1.5rem;
+        }
+
+        .help-text li {
+            margin-bottom: 0.25rem;
+        }
+
         @media (max-width: 640px) {
             .navbar {
                 padding: 1rem;
@@ -203,6 +257,10 @@
             .main-content {
                 margin-top: 80px;
                 padding: 0 1rem;
+            }
+
+            .help-section {
+                padding: 1rem;
             }
         }
     </style>
@@ -221,6 +279,36 @@
     <main class="main-content">
         <div class="card">
             <h1>Upload Document</h1>
+            <div class="help-section">
+                <h2>How to Use</h2>
+                <div class="help-content">
+                    <div class="help-item">
+                        <div class="help-icon">📄</div>
+                        <div class="help-text">
+                            <h3>Supported Files</h3>
+                            <p>Currently, we support PDF documents only. Make sure your file is in PDF format.</p>
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-icon">⬆️</div>
+                        <div class="help-text">
+                            <h3>Upload Methods</h3>
+                            <p>You can upload your document in two ways:</p>
+                            <ul>
+                                <li>Drag and drop your PDF file into the upload area</li>
+                                <li>Click the upload area to browse and select your file</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="help-item">
+                        <div class="help-icon">⚡</div>
+                        <div class="help-text">
+                            <h3>Processing</h3>
+                            <p>After uploading, your document will be automatically processed and indexed for semantic search. This may take a few moments depending on the file size.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <form id="uploadForm">
                 <div class="upload-area" id="dropZone">
                     <div class="upload-icon">📄</div>
