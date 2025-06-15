@@ -5,8 +5,11 @@ from flask import Flask, request, jsonify, render_template
 from werkzeug.utils import secure_filename
 from elasticsearch import Elasticsearch, helpers
 from sentence_transformers import SentenceTransformer
-from transformers import pipeline
-from typing import List, Dict
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # === Config ===
 UPLOAD_FOLDER = "uploads"
@@ -22,46 +25,32 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # === Model & Elasticsearch ===
 model = SentenceTransformer("all-MiniLM-L6-v2")
 es = Elasticsearch(ES_HOST)
-summarizer = pipeline("summarization", model="facebook/bart-large-cnn")
-
 
 # === Utility Functions ===
-def allowed_file(filename):
+def allowed_file(filename: str) -> bool:
+    """Check if file extension is allowed."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
 
-
-def sanitize_index_name(name):
-    name = name.lower()
-    name = re.sub(r"[^a-z0-9_-]", "-", name)
-    name = re.sub(r"-+", "-", name).strip("-")
-    return name[:255]
-
-
-def generate_summary(texts: List[str], max_length: int = 250) -> str:
-    """Generate a summary from multiple text chunks."""
-    # Combine all texts with proper spacing
-    combined_text = " ".join(texts)
-    
-    # If text is too long, truncate it (BART has a max input length)
-    if len(combined_text) > 1024:
-        combined_text = combined_text[:1024]
-    
-    # Generate summary
-    summary = summarizer(combined_text, max_length=max_length, min_length=30, do_sample=False)
-    return summary[0]['summary_text']
-
+def sanitize_index_name(filename: str) -> str:
+    """Convert filename to valid Elasticsearch index name."""
+    # Remove file extension and convert to lowercase
+    name = os.path.splitext(filename)[0].lower()
+    # Replace invalid characters with hyphens
+    name = re.sub(r'[^a-z0-9-]', '-', name)
+    # Remove multiple consecutive hyphens
+    name = re.sub(r'-+', '-', name)
+    # Remove leading/trailing hyphens
+    name = name.strip('-')
+    return name
 
 # === Routes ===
-
 @app.route("/")
-def home():
-    return render_template("upload.html")
-
+def index():
+    return render_template("search.html")
 
 @app.route("/search")
 def search():
     return render_template("search.html")
-
 
 @app.route("/hydrate", methods=["POST"])
 def hydrate():
@@ -78,42 +67,71 @@ def hydrate():
     file.save(file_path)
 
     index_name = sanitize_index_name(os.path.splitext(filename)[0])
+    logger.info(f"Processing file: {filename} for index: {index_name}")
 
-    if not es.indices.exists(index=index_name):
-        es.indices.create(index=index_name, body={
-            "mappings": {
-                "properties": {
-                    "content": {"type": "text"},
-                    "vector": {
-                        "type": "dense_vector",
-                        "dims": VECTOR_DIM,
-                        "index": False
+    try:
+        # Create index with basic mapping
+        if not es.indices.exists(index=index_name):
+            logger.info(f"Creating new index: {index_name}")
+            es.indices.create(index=index_name, body={
+                "mappings": {
+                    "properties": {
+                        "content": {
+                            "type": "text",
+                            "analyzer": "standard"
+                        },
+                        "vector": {
+                            "type": "dense_vector",
+                            "dims": VECTOR_DIM,
+                            "index": False
+                        },
+                        "page_number": {
+                            "type": "integer"
+                        }
                     }
-                }
-            }
-        })
-
-    doc = fitz.open(file_path)
-    pages = [page.get_text() for page in doc]
-    doc.close()
-
-    actions = []
-    for i, text in enumerate(pages):
-        if text.strip():
-            embedding = model.encode(text).tolist()
-            actions.append({
-                "_index": index_name,
-                "_id": f"page-{i}",
-                "_source": {
-                    "content": text,
-                    "vector": embedding
                 }
             })
 
-    helpers.bulk(es, actions)
+        # Process PDF
+        doc = fitz.open(file_path)
+        actions = []
+        
+        for i, page in enumerate(doc):
+            text = page.get_text()
+            if text.strip():
+                embedding = model.encode(text).tolist()
+                actions.append({
+                    "_index": index_name,
+                    "_id": f"page-{i}",
+                    "_source": {
+                        "content": text,
+                        "vector": embedding,
+                        "page_number": i + 1
+                    }
+                })
+                logger.info(f"Processed page {i+1}")
 
-    return jsonify({"message": f"✅ Indexed {len(actions)} pages to '{index_name}'", "index": index_name})
+        doc.close()
 
+        # Bulk index
+        success, failed = helpers.bulk(es, actions, stats_only=True)
+        logger.info(f"Indexed {success} pages, {failed} failed")
+        return jsonify({
+            "message": f"✅ Successfully indexed {success} pages to '{index_name}'",
+            "failed": failed,
+            "index": index_name
+        })
+
+    except Exception as e:
+        logger.error(f"Error during hydration: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
+    finally:
+        # Clean up the uploaded file
+        try:
+            if os.path.exists(file_path):
+                os.remove(file_path)
+        except Exception:
+            pass
 
 @app.route("/semantic-search", methods=["POST"])
 def semantic_search():
@@ -123,40 +141,41 @@ def semantic_search():
     if not query or not index:
         return jsonify({"error": "Missing query or index"}), 400
 
-    query_vector = model.encode(query).tolist()
+    try:
+        # Encode query
+        query_vector = model.encode(query).tolist()
 
-    response = es.search(index=index, size=5, body={
-        "query": {
-            "script_score": {
-                "query": {"match_all": {}},
-                "script": {
-                    "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
-                    "params": {"query_vector": query_vector}
-                }
+        # Search
+        response = es.search(
+            index=index,
+            body={
+                "query": {
+                    "script_score": {
+                        "query": {"match_all": {}},
+                        "script": {
+                            "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
+                            "params": {"query_vector": query_vector}
+                        }
+                    }
+                },
+                "size": 10
             }
-        }
-    })
+        )
 
-    hits = [
-        {
-            "score": round(hit["_score"], 4),
-            "text": hit["_source"]["content"][:500]
-        }
-        for hit in response["hits"]["hits"]
-    ]
+        # Format results
+        hits = []
+        for hit in response["hits"]["hits"]:
+            hits.append({
+                "score": hit["_score"],
+                "text": hit["_source"]["content"],
+                "page": hit["_source"]["page_number"]
+            })
 
-    # Generate summary from all hits
-    if hits:
-        summary = generate_summary([hit["text"] for hit in hits])
-    else:
-        summary = "No relevant information found."
+        return render_template("results.html", query=query, results=hits)
 
-    return render_template("results.html", 
-                         query=query, 
-                         index=index, 
-                         results=hits,
-                         summary=summary)
-
+    except Exception as e:
+        logger.error(f"Error during search: {str(e)}")
+        return jsonify({"error": f"An error occurred: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
