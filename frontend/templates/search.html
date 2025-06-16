@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SearchIQ - Semantic Search</title>
+    <title>SearchIQ - Advanced Search</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css" rel="stylesheet">
     <style>
         :root {
             --primary-color: #2563eb;
@@ -71,9 +72,15 @@
         }
 
         .main-content {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 100px auto 40px;
             padding: 0 2rem;
+        }
+
+        .search-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 2rem;
         }
 
         .card {
@@ -81,6 +88,7 @@
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
             padding: 2rem;
+            margin-bottom: 1.5rem;
         }
 
         h1 {
@@ -101,7 +109,7 @@
             color: var(--text-primary);
         }
 
-        input {
+        input, select {
             width: 100%;
             padding: 0.75rem 1rem;
             border: 1px solid var(--border);
@@ -109,16 +117,19 @@
             font-size: 1rem;
             transition: border-color 0.2s;
             background: var(--surface);
+            font-family: 'Inter', sans-serif;
         }
 
-        input:focus {
+        input:focus, select:focus {
             outline: none;
             border-color: var(--primary-color);
             box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
         }
 
-        input::placeholder {
-            color: var(--text-secondary);
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 2rem;
         }
 
         button {
@@ -130,106 +141,62 @@
             font-weight: 500;
             cursor: pointer;
             transition: background-color 0.2s;
-            width: 100%;
             font-size: 1rem;
+            font-family: 'Inter', sans-serif;
         }
 
         button:hover {
             background-color: var(--primary-hover);
         }
 
-        button:disabled {
-            background-color: var(--border);
-            cursor: not-allowed;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            margin-top: 1rem;
-        }
-
-        .loading.active {
-            display: block;
-        }
-
-        .spinner {
-            border: 3px solid var(--border);
-            border-top: 3px solid var(--primary-color);
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        footer {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
-
-        .help-section {
-            margin-bottom: 2rem;
-            padding: 1.5rem;
-            background: var(--background);
-            border-radius: 8px;
-        }
-
-        .help-section h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
+        button.secondary {
+            background-color: var(--surface);
             color: var(--text-primary);
-            margin-bottom: 1rem;
+            border: 1px solid var(--border);
         }
 
-        .help-content {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
+        button.secondary:hover {
+            background-color: var(--background);
         }
 
-        .help-item {
-            display: flex;
-            gap: 1rem;
-            align-items: flex-start;
+        .search-history {
+            max-height: 500px;
+            overflow-y: auto;
         }
 
-        .help-icon {
-            font-size: 1.5rem;
-            color: var(--primary-color);
+        .search-history-item {
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
 
-        .help-text h3 {
-            font-size: 1rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 0.5rem;
+        .search-history-item:hover {
+            background-color: var(--background);
         }
 
-        .help-text p {
-            color: var(--text-secondary);
+        .search-history-item .timestamp {
             font-size: 0.875rem;
-            margin-bottom: 0.5rem;
-        }
-
-        .help-text ul {
             color: var(--text-secondary);
-            font-size: 0.875rem;
-            margin-left: 1.5rem;
-        }
-
-        .help-text li {
             margin-bottom: 0.25rem;
         }
 
-        @media (max-width: 640px) {
+        .search-history-item .query {
+            color: var(--text-primary);
+            font-weight: 500;
+        }
+
+        .help-text {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        @media (max-width: 768px) {
+            .search-container {
+                grid-template-columns: 1fr;
+            }
+            
             .navbar {
                 padding: 1rem;
             }
@@ -239,12 +206,7 @@
             }
 
             .main-content {
-                margin-top: 80px;
                 padding: 0 1rem;
-            }
-
-            .help-section {
-                padding: 1rem;
             }
         }
     </style>
@@ -261,79 +223,133 @@
     </nav>
 
     <main class="main-content">
-        <div class="card">
-            <h1>Semantic Search</h1>
-            <div class="help-section">
-                <h2>How to Use</h2>
-                <div class="help-content">
-                    <div class="help-item">
-                        <div class="help-icon">🔍</div>
-                        <div class="help-text">
-                            <h3>Search Index</h3>
-                            <p>Enter the name of the Elasticsearch index where your documents are stored. This is typically the name you used when uploading your documents.</p>
+        <h1>Advanced Search</h1>
+        
+        <div class="search-container">
+            <div class="search-form">
+                <form id="searchForm" action="/semantic-search" method="POST">
+                    <div class="card">
+                        <div class="form-group">
+                            <label for="query">Search Query</label>
+                            <input type="text" id="query" name="query" 
+                                   placeholder="Use AND, OR, NOT operators (e.g., 'machine AND learning')">
+                            <div class="help-text">Combine terms with AND, OR, NOT for precise searching</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="semantic_query">Semantic Search (Optional)</label>
+                            <input type="text" id="semantic_query" name="semantic_query" 
+                                   placeholder="Enter a natural language query for semantic search">
+                            <div class="help-text">Use natural language to find conceptually similar content</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>Date Range</label>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                                <div>
+                                    <input type="text" class="datepicker" id="date_from" name="date_from" placeholder="From">
+                                </div>
+                                <div>
+                                    <input type="text" class="datepicker" id="date_to" name="date_to" placeholder="To">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="doc_type">Document Type</label>
+                            <select id="doc_type" name="doc_type">
+                                <option value="">All Types</option>
+                                <option value="pdf">PDF</option>
+                                <option value="doc">Document</option>
+                                <option value="txt">Text</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="section">Search in Section</label>
+                            <select id="section" name="section">
+                                <option value="">All Sections</option>
+                                <option value="title">Title</option>
+                                <option value="content">Content</option>
+                                <option value="metadata">Metadata</option>
+                            </select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="index">Search Index</label>
+                            <input type="text" id="index" name="index" required placeholder="Enter the index name">
+                        </div>
+                        
+                        <div class="button-group">
+                            <button type="submit">Search</button>
+                            <button type="button" class="secondary" id="saveSearch">Save Search</button>
                         </div>
                     </div>
-                    <div class="help-item">
-                        <div class="help-icon">💡</div>
-                        <div class="help-text">
-                            <h3>Natural Language Queries</h3>
-                            <p>Ask questions in natural language. For example:</p>
-                            <ul>
-                                <li>"What are the main points in chapter 3?"</li>
-                                <li>"Summarize the key findings"</li>
-                                <li>"What does the document say about implementation?"</li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="help-item">
-                        <div class="help-icon">🎯</div>
-                        <div class="help-text">
-                            <h3>Search Results</h3>
-                            <p>Results are ranked by relevance to your query. Each result shows:</p>
-                            <ul>
-                                <li>The matching text from the document</li>
-                                <li>A relevance score showing how well it matches your query</li>
-                            </ul>
-                        </div>
+                </form>
+            </div>
+            
+            <div class="search-history-panel">
+                <div class="card">
+                    <h2 style="font-size: 1.25rem; margin-bottom: 1rem;">Search History</h2>
+                    <div class="search-history">
+                        {% if search_history %}
+                            {% for search in search_history %}
+                                <div class="search-history-item" data-search='{{ search.query|tojson }}'>
+                                    <div class="timestamp">{{ search.timestamp }}</div>
+                                    <div class="query">{{ search.query.query }}</div>
+                                </div>
+                            {% endfor %}
+                        {% else %}
+                            <p style="color: var(--text-secondary);">No search history</p>
+                        {% endif %}
                     </div>
                 </div>
             </div>
-            <form method="POST" action="/semantic-search" id="searchForm">
-                <div class="form-group">
-                    <label for="index">Elasticsearch Index</label>
-                    <input type="text" id="index" name="index" required 
-                           placeholder="e.g. sample-pdf-index"
-                           autocomplete="off">
-                </div>
-
-                <div class="form-group">
-                    <label for="query">Your Question</label>
-                    <input type="text" id="query" name="query" required 
-                           placeholder="e.g. What is the summary of chapter 2?"
-                           autocomplete="off">
-                </div>
-
-                <button type="submit" id="submitBtn">Search</button>
-                <div class="loading" id="loading">
-                    <div class="spinner"></div>
-                    <p>Searching...</p>
-                </div>
-            </form>
         </div>
     </main>
 
-    <footer>
-        <p>© 2025 SearchIQ. All rights reserved.</p>
-    </footer>
-
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <script>
-        const form = document.getElementById('searchForm');
-        const loading = document.getElementById('loading');
-        const submitBtn = document.getElementById('submitBtn');
+        // Initialize date pickers
+        flatpickr(".datepicker", {
+            dateFormat: "Y-m-d",
+            allowInput: true
+        });
 
-        form.addEventListener('submit', () => {
-            loading.classList.add('active');
-            submitBtn.disabled = true;
+        // Handle search history clicks
+        document.querySelectorAll('.search-history-item').forEach(item => {
+            item.addEventListener('click', function() {
+                const searchData = JSON.parse(this.dataset.search);
+                Object.entries(searchData).forEach(([key, value]) => {
+                    const input = document.querySelector(`[name="${key}"]`);
+                    if (input) input.value = value;
+                });
+            });
+        });
+
+        // Handle save search
+        document.getElementById('saveSearch').addEventListener('click', function() {
+            const formData = new FormData(document.getElementById('searchForm'));
+            const searchData = Object.fromEntries(formData.entries());
+            
+            fetch('/save-search', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(searchData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    alert('Search saved successfully!');
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving search');
+            });
         });
     </script>
 </body>

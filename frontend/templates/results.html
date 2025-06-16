@@ -73,7 +73,7 @@
         }
 
         .main-content {
-            max-width: 800px;
+            max-width: 1200px;
             margin: 100px auto 40px;
             padding: 0 2rem;
         }
@@ -83,21 +83,35 @@
         }
 
         h1 {
-            font-size: 1.5rem;
+            font-size: 2rem;
             font-weight: 600;
+            margin-bottom: 1rem;
             color: var(--text-primary);
-            margin-bottom: 0.5rem;
+        }
+
+        .query-info {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
 
         .query-text {
-            color: var(--text-secondary);
-            font-size: 1rem;
+            font-size: 1.125rem;
+            color: var(--text-primary);
+            margin-bottom: 0.5rem;
         }
 
         .results-count {
             color: var(--text-secondary);
             font-size: 0.875rem;
-            margin-top: 0.5rem;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(500px, 1fr));
+            gap: 1.5rem;
         }
 
         .result-card {
@@ -105,8 +119,8 @@
             border-radius: 12px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1);
             padding: 1.5rem;
-            margin-bottom: 1rem;
             transition: transform 0.2s, box-shadow 0.2s;
+            position: relative;
         }
 
         .result-card:hover {
@@ -114,21 +128,60 @@
             box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);
         }
 
-        .score {
-            display: inline-block;
+        .score-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
             background: var(--success-bg);
             color: var(--success);
             padding: 0.25rem 0.75rem;
             border-radius: 9999px;
             font-size: 0.875rem;
             font-weight: 500;
+        }
+
+        .result-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-primary);
             margin-bottom: 1rem;
+            padding-right: 100px;
+        }
+
+        .metadata {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
         }
 
         .result-text {
             color: var(--text-primary);
             font-size: 1rem;
             line-height: 1.6;
+        }
+
+        .back-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+            margin-bottom: 1.5rem;
+            transition: color 0.2s;
+        }
+
+        .back-button:hover {
+            color: var(--primary-hover);
         }
 
         .no-results {
@@ -150,32 +203,22 @@
             font-size: 1.125rem;
         }
 
-        .back-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: var(--primary-color);
-            text-decoration: none;
-            font-weight: 500;
-            margin-bottom: 1.5rem;
-            transition: color 0.2s;
-        }
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+            }
 
-        .back-button:hover {
-            color: var(--primary-hover);
-        }
+            .nav-links {
+                gap: 1rem;
+            }
 
-        footer {
-            text-align: center;
-            padding: 2rem;
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-        }
+            .main-content {
+                padding: 0 1rem;
+            }
 
-        .page-info {
-            color: var(--text-secondary);
-            font-size: 0.875rem;
-            margin-top: 0.5rem;
+            .results-grid {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
@@ -195,28 +238,60 @@
 
         <div class="header">
             <h1>Search Results</h1>
-            <p class="query-text">Query: "{{ query }}"</p>
-            <p class="results-count">{{ results|length }} results found</p>
+        </div>
+
+        <div class="query-info">
+            <div class="query-text">Query: "{{ query }}"</div>
+            <div class="results-count">{{ total_hits }} results found</div>
         </div>
 
         {% if results %}
-            {% for result in results %}
-                <div class="result-card">
-                    <div class="score">Score: {{ result.score }}</div>
-                    <div class="result-text">{{ result.text }}</div>
-                    <div class="page-info">Page {{ result.page }}</div>
-                </div>
-            {% endfor %}
+            <div class="results-grid">
+                {% for result in results %}
+                    <div class="result-card">
+                        <div class="score-badge">
+                            Score: {{ "%.2f"|format(result.score) }}
+                        </div>
+                        
+                        <h2 class="result-title">{{ result.title or 'Untitled Document' }}</h2>
+                        
+                        <div class="metadata">
+                            {% if result.author %}
+                                <div class="metadata-item">
+                                    <span>👤</span>
+                                    <span>{{ result.author }}</span>
+                                </div>
+                            {% endif %}
+                            {% if result.upload_date %}
+                                <div class="metadata-item">
+                                    <span>📅</span>
+                                    <span>{{ result.upload_date }}</span>
+                                </div>
+                            {% endif %}
+                            {% if result.file_type %}
+                                <div class="metadata-item">
+                                    <span>📄</span>
+                                    <span>{{ result.file_type }}</span>
+                                </div>
+                            {% endif %}
+                            <div class="metadata-item">
+                                <span>📃</span>
+                                <span>Page {{ result.page }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="result-text">
+                            {{ result.text[:300] }}{% if result.text|length > 300 %}...{% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
         {% else %}
             <div class="no-results">
                 <div class="no-results-icon">🔍</div>
-                <p class="no-results-text">No results found for your query.</p>
+                <p class="no-results-text">No results found. Try adjusting your search criteria.</p>
             </div>
         {% endif %}
     </main>
-
-    <footer>
-        <p>© 2025 SearchIQ. All rights reserved.</p>
-    </footer>
 </body>
 </html>
