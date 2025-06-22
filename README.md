@@ -1,113 +1,153 @@
-# SearchIQ - PDF Semantic Search System
+# SearchIQ - Advanced Document Search System
 
-This project implements a semantic search system for PDF documents using Elasticsearch and sentence transformers. It allows you to index PDF content and perform semantic searches on the indexed content through both a command-line interface and a web interface.
+SearchIQ is a powerful document search system that combines traditional text search with semantic search capabilities. It allows you to upload PDF documents and search through them using various advanced features.
 
-## Components
+## Features
 
-The project consists of several components:
+### 1. Document Upload
+- Upload PDF documents
+- Automatic metadata extraction
+- Section detection and indexing
+- Reading time calculation
+- Keyword extraction
 
-1. Backend Scripts:
-   - `hydrate_es.py` - Command-line tool to index PDF content into Elasticsearch
-   - `search.py` - Command-line tool to perform semantic search queries
+### 2. Advanced Search Capabilities
 
-2. Web Interface (Frontend):
-   - Flask-based web application (`frontend/app.py`)
-   - HTML templates for upload, search, and results pages
-   - Interactive web interface for PDF indexing and semantic search
+#### Basic Search
+- Simple text search across all documents
+- Semantic search using natural language queries
+- Combined text and semantic search
 
-## Prerequisites
+#### Advanced Search Operators
+- **AND**: Find documents containing all specified terms
+  ```
+  machine AND learning
+  ```
+- **OR**: Find documents containing any of the specified terms
+  ```
+  python OR java
+  ```
+- **NOT**: Exclude documents containing specific terms
+  ```
+  programming NOT java
+  ```
 
-- Python 3.x
-- Elasticsearch running locally (default: http://localhost:9200)
-- Required Python packages:
-  - PyMuPDF (fitz)
-  - sentence-transformers
-  - elasticsearch
-  - Flask (for web interface)
+#### Filters
+- **Date Range**: Filter documents by upload date
+- **Document Type**: Filter by file type (PDF, DOC, TXT)
+- **Section**: Search within specific sections of documents
+- **Reading Time**: Filter by estimated reading time
+
+#### Search History
+- Save frequently used searches
+- Quick access to previous searches
+- Reuse search parameters
+
+## How to Use
+
+### 1. Uploading Documents
+1. Navigate to the home page
+2. Click "Choose File" to select a PDF document
+3. Click "Upload" to process the document
+4. Wait for the indexing process to complete
+
+### 2. Searching Documents
+
+#### Basic Search
+1. Go to the Search page
+2. Enter your search query in the "Search Query" field
+3. Enter the index name (usually the name of your uploaded document)
+4. Click "Search"
+
+#### Advanced Search
+1. Go to the Search page
+2. Use the advanced search form to:
+   - Enter a text query with operators (AND, OR, NOT)
+   - Add an optional semantic query
+   - Set date range filters
+   - Select document type
+   - Choose specific sections to search in
+3. Click "Search"
+
+#### Saving Searches
+1. After performing a search, click "Save Search"
+2. The search will appear in your search history
+3. Click on any saved search to reuse its parameters
+
+### 3. Understanding Results
+
+Search results show:
+- Relevance score
+- Document title
+- Author information
+- Upload date
+- File type
+- Section information
+- Reading time
+- Relevant keywords
+- Matching text excerpt
+
+## Search Tips
+
+1. **Combining Operators**
+   ```
+   (machine AND learning) NOT python
+   ```
+
+2. **Section-Specific Search**
+   - Use the section dropdown to search within specific parts of documents
+   - Useful for finding information in particular chapters or sections
+
+3. **Date Filtering**
+   - Use date range to find recently uploaded documents
+   - Filter by creation or modification date
+
+4. **Semantic Search**
+   - Use natural language queries for concept-based search
+   - Example: "What are the main points about machine learning?"
+   - Works well with technical or complex topics
+
+5. **Keyword Search**
+   - Look for specific terms or phrases
+   - Use quotes for exact phrase matching
+   - Example: "neural network architecture"
+
+## Technical Details
+
+### Indexing Process
+- Documents are split into sections
+- Each section is indexed separately
+- Metadata is extracted and stored
+- Vector embeddings are generated for semantic search
+- Keywords are extracted automatically
+
+### Search Process
+- Combines traditional text search with vector similarity
+- Supports boolean operators
+- Filters results based on metadata
+- Ranks results by relevance
+
+## Requirements
+
+- Python 3.8+
+- Elasticsearch 7.x
+- Flask
+- PyMuPDF
+- Sentence Transformers
 
 ## Installation
 
-1. Install the required Python packages:
-```bash
-pip install PyMuPDF sentence-transformers elasticsearch Flask
-```
+1. Clone the repository
+2. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+3. Start Elasticsearch
+4. Run the application:
+   ```bash
+   python frontend/app.py
+   ```
 
-2. Ensure Elasticsearch is running locally on port 9200
+## Contributing
 
-## Usage
-
-### Web Interface
-
-1. Start the web application:
-```bash
-cd frontend
-python app.py
-```
-
-2. Open your browser and navigate to `http://localhost:5000`
-
-3. Use the web interface to:
-   - Upload and index PDF files
-   - Perform semantic searches
-   - View search results with relevance scores
-
-### Command Line Interface
-
-#### 1. Indexing PDF Content
-
-Run the hydration script to index your PDF content:
-```bash
-python hydrate_es.py
-```
-
-This script will:
-- Create an Elasticsearch index named "aws-overview"
-- Extract text from the PDF file
-- Generate embeddings using the all-MiniLM-L6-v2 model
-- Index the content and embeddings into Elasticsearch
-
-#### 2. Performing Semantic Search
-
-Run the search script to query the indexed content:
-```bash
-python search.py
-```
-
-When prompted, enter your search query. The script will:
-- Convert your query into an embedding
-- Perform a semantic search using cosine similarity
-- Display the top 3 most relevant matches with their scores
-
-## Configuration
-
-The following parameters can be modified in the scripts:
-
-- `INDEX_NAME`: Name of the Elasticsearch index (default: "aws-overview")
-- `ES_HOST`: Elasticsearch host URL (default: "http://localhost:9200")
-- `VECTOR_DIM`: Dimension of the embedding vectors (default: 384)
-- `PDF_PATH`: Path to the PDF file to be indexed
-- `UPLOAD_FOLDER`: Directory for storing uploaded PDFs (default: "frontend/uploads")
-
-## Project Structure
-
-```
-.
-├── frontend/
-│   ├── app.py              # Flask web application
-│   ├── requirements.txt    # Frontend dependencies
-│   ├── templates/          # HTML templates
-│   │   ├── upload.html    # PDF upload page
-│   │   ├── search.html    # Search interface
-│   │   └── results.html   # Search results page
-│   └── uploads/           # Directory for uploaded PDFs
-├── hydrate_es.py          # PDF indexing script
-└── search.py             # Command-line search script
-```
-
-## Notes
-
-- The system uses the all-MiniLM-L6-v2 model for generating embeddings
-- Search results are ranked using cosine similarity
-- The web interface returns the top 5 matches for each query
-- The command-line interface returns the top 3 matches
-- Index names are automatically sanitized to be Elasticsearch-compatible 
+Feel free to submit issues and enhancement requests! 
