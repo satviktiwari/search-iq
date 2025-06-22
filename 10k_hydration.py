@@ -52,7 +52,7 @@ section_pattern = re.compile(
 # Extract tables once for all pages (to avoid repeated extraction)
 tables_stream = camelot.read_pdf(pdf_path, pages="all", flavor="stream")
 tables_lattice = camelot.read_pdf(pdf_path, pages="all", flavor="lattice")
-all_tables = tables_stream + tables_lattice
+all_tables = list(tables_stream) + list(tables_lattice)
 
 # Build a mapping from page number to tables
 page_to_tables = {}
